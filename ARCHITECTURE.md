@@ -281,6 +281,455 @@ map
 
 ---
 
+## Navigation Deep Dive: How the Robot Actually Moves
+
+### The Big Picture: Waypoints + Sensor Feedback
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    NAVIGATION IS A HYBRID APPROACH                               │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│   MANUAL WAYPOINTS                    SENSOR-BASED EXECUTION                     │
+│   (What to do)                        (How to do it)                             │
+│                                                                                  │
+│   ┌─────────────────┐                ┌─────────────────┐                        │
+│   │ navigation_     │                │ LiDAR (/scan)   │                        │
+│   │ waypoints.yaml  │                │ Odometry (/odom)│                        │
+│   │                 │                │ IMU             │                        │
+│   │ • Goal 1: x,y   │                │ Camera          │                        │
+│   │ • Goal 2: x,y   │                └────────┬────────┘                        │
+│   │ • Goal 3: x,y   │                         │                                 │
+│   └────────┬────────┘                         │                                 │
+│            │                                  ▼                                 │
+│            │                         ┌─────────────────┐                        │
+│            │                         │ NAV2 uses these │                        │
+│            └────────────────────────▶│ to SAFELY reach │                        │
+│              "Go to this point"      │ the waypoint    │                        │
+│                                      └─────────────────┘                        │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+So: WAYPOINTS define WHERE to go, SENSORS define HOW to get there safely.
+```
+
+---
+
+### Sensor Data Flow (How Robot Perceives World)
+
+```
+GAZEBO SIMULATION                           ROS2 NODES
+═══════════════════                         ══════════════════
+
+┌─────────────────┐                         
+│   Mars World    │                         
+│  ┌───────────┐  │                         
+│  │  Table    │  │                         
+│  │  Chairs   │  │                         
+│  │  Boulders │  │                         
+│  └───────────┘  │                         
+│                 │                         
+│  ┌───────────┐  │                         
+│  │ Husky UR3 │  │                         
+│  │  Robot    │──┼────────────────────────────────────────┐
+│  └───────────┘  │                                        │
+│    │  │  │  │   │                                        │
+└────┼──┼──┼──┼───┘                                        │
+     │  │  │  │                                            │
+     │  │  │  │  ros_gz_bridge (translates Gazebo↔ROS2)    │
+     │  │  │  │         │                                  │
+     ▼  ▼  ▼  ▼         ▼                                  │
+┌────────────────────────────────────────────────────────────────────┐
+│                      SENSOR TOPICS                                  │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  /scan (LaserScan)              /odom (Odometry)                   │
+│  ┌─────────────────────┐        ┌─────────────────────┐            │
+│  │ 2D LiDAR data       │        │ Wheel encoder data  │            │
+│  │ • 360° scan         │        │ • Position x,y,z    │            │
+│  │ • Range to objects  │        │ • Orientation quat  │            │
+│  │ • Detect obstacles  │        │ • Velocity linear   │            │
+│  │   (chairs, table)   │        │ • Velocity angular  │            │
+│  └──────────┬──────────┘        └──────────┬──────────┘            │
+│             │                              │                        │
+│             ▼                              ▼                        │
+│      ┌─────────────┐              ┌─────────────────┐              │
+│      │ COSTMAP     │              │ STATE ESTIMATION│              │
+│      │ (Nav2)      │              │ (SLAM/EKF)      │              │
+│      └─────────────┘              └─────────────────┘              │
+│                                                                     │
+│  /zed_base/left/image_raw        /joint_states                     │
+│  ┌─────────────────────┐        ┌─────────────────────┐            │
+│  │ Camera images       │        │ Arm joint positions │            │
+│  │ • RGB frames        │        │ • 6 UR3 joints      │            │
+│  │ • For 3D mapping    │        │ • Gripper joints    │            │
+│  └─────────────────────┘        └─────────────────────┘            │
+│                                                                     │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Localization: Where Am I? (SLAM + TF)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         LOCALIZATION SYSTEM                                      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  THE PROBLEM: Robot needs to know its position in the world                     │
+│                                                                                  │
+│  THE SOLUTION: SLAM Toolbox + TF Transform Tree                                 │
+│                                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │                           SLAM TOOLBOX                                   │    │
+│  │                      (async_slam_toolbox_node)                          │    │
+│  │                                                                          │    │
+│  │    Input:                          Output:                               │    │
+│  │    ┌──────────────┐               ┌──────────────┐                      │    │
+│  │    │ /scan        │──────────────▶│ /map         │ (OccupancyGrid)     │    │
+│  │    │ (LiDAR data) │               │              │ Where are walls?    │    │
+│  │    └──────────────┘               └──────────────┘                      │    │
+│  │    ┌──────────────┐               ┌──────────────┐                      │    │
+│  │    │ /odom        │──────────────▶│ map→odom TF  │ Corrects drift      │    │
+│  │    │ (wheel odom) │               │              │                      │    │
+│  │    └──────────────┘               └──────────────┘                      │    │
+│  │                                                                          │    │
+│  │    SLAM = Simultaneous Localization And Mapping                         │    │
+│  │    • Builds map from LiDAR scans                                        │    │
+│  │    • Tracks robot position in that map                                  │    │
+│  │    • Corrects odometry drift using scan matching                        │    │
+│  │                                                                          │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │                        TF TRANSFORM TREE                                 │    │
+│  │                                                                          │    │
+│  │                         map                                              │    │
+│  │                          │                                               │    │
+│  │                          │ (SLAM publishes this)                         │    │
+│  │                          ▼                                               │    │
+│  │                        odom                                              │    │
+│  │                          │                                               │    │
+│  │                          │ (odom_to_tf_node publishes this)              │    │
+│  │                          ▼                                               │    │
+│  │                      base_link ◄─── Robot's body center                  │    │
+│  │                      /   |   \                                           │    │
+│  │                     /    |    \                                          │    │
+│  │                    ▼     ▼     ▼                                         │    │
+│  │              base_laser  ur3_   zed_base_                                │    │
+│  │              (LiDAR)   base_link  camera                                 │    │
+│  │                          │                                               │    │
+│  │                          ▼ (6 joints)                                    │    │
+│  │                     wrist_3_link                                         │    │
+│  │                          │                                               │    │
+│  │                          ▼                                               │    │
+│  │                    zed_arm_camera                                        │    │
+│  │                                                                          │    │
+│  │    robot_state_publisher: Publishes URDF joint transforms               │    │
+│  │    odom_to_tf_node: Converts /odom topic to odom→base_link TF           │    │
+│  │                                                                          │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+NOTE: This project uses SLAM Toolbox instead of EKF (robot_localization).
+      EKF would fuse multiple sensors (IMU, odom, GPS) for better estimates,
+      but for this simulation, wheel odometry + SLAM is sufficient.
+```
+
+---
+
+### Nav2: The Brain of Navigation
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              NAV2 ARCHITECTURE                                   │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  waypoint_navigator_node                                                        │
+│         │                                                                        │
+│         │ NavigateToPose Action                                                  │
+│         │ (goal: x=3.0, y=1.5, yaw=0)                                           │
+│         ▼                                                                        │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │                         BT_NAVIGATOR                                     │    │
+│  │                    (Behavior Tree Navigator)                            │    │
+│  │                                                                          │    │
+│  │    ┌─────────────────────────────────────────────────────────┐          │    │
+│  │    │                   Behavior Tree                          │          │    │
+│  │    │                                                          │          │    │
+│  │    │    NavigateToPose                                        │          │    │
+│  │    │         │                                                │          │    │
+│  │    │         ├── ComputePathToPose ──▶ Call Planner           │          │    │
+│  │    │         │                                                │          │    │
+│  │    │         └── FollowPath ──────────▶ Call Controller       │          │    │
+│  │    │               │                                          │          │    │
+│  │    │               └── Recovery (if stuck)                    │          │    │
+│  │    │                     ├── Spin                             │          │    │
+│  │    │                     ├── BackUp                           │          │    │
+│  │    │                     └── Wait                             │          │    │
+│  │    │                                                          │          │    │
+│  │    └─────────────────────────────────────────────────────────┘          │    │
+│  └────────────────────────────────┬────────────────────────────────────────┘    │
+│                                   │                                              │
+│           ┌───────────────────────┼───────────────────────┐                     │
+│           │                       │                       │                     │
+│           ▼                       ▼                       ▼                     │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐             │
+│  │ PLANNER_SERVER  │    │CONTROLLER_SERVER│    │RECOVERIES_SERVER│             │
+│  │                 │    │                 │    │                 │             │
+│  │ NavFn or Smac   │    │ DWB Local       │    │ Spin, Backup    │             │
+│  │ Planner         │    │ Planner         │    │ Wait, Clear     │             │
+│  │                 │    │                 │    │                 │             │
+│  │ Input:          │    │ Input:          │    │ When robot is   │             │
+│  │ • Start pose    │    │ • Global path   │    │ stuck, these    │             │
+│  │ • Goal pose     │    │ • Current odom  │    │ behaviors try   │             │
+│  │ • Global costmap│    │ • Local costmap │    │ to recover      │             │
+│  │                 │    │                 │    │                 │             │
+│  │ Output:         │    │ Output:         │    │                 │             │
+│  │ • Path (poses)  │    │ • /cmd_vel      │    │                 │             │
+│  │                 │    │   (Twist msg)   │    │                 │             │
+│  └─────────────────┘    └────────┬────────┘    └─────────────────┘             │
+│                                  │                                              │
+│                                  ▼                                              │
+│                        ┌─────────────────┐                                      │
+│                        │   /cmd_vel      │                                      │
+│                        │ linear.x: 0.26  │                                      │
+│                        │ angular.z: 0.1  │                                      │
+│                        └────────┬────────┘                                      │
+│                                 │                                               │
+│                                 │ ros_gz_bridge                                 │
+│                                 ▼                                               │
+│                        ┌─────────────────┐                                      │
+│                        │ GAZEBO PHYSICS  │                                      │
+│                        │ Moves robot     │                                      │
+│                        └─────────────────┘                                      │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Costmaps: How Nav2 Sees Obstacles
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              COSTMAP SYSTEM                                      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  GLOBAL COSTMAP                           LOCAL COSTMAP                         │
+│  (For path planning)                      (For real-time avoidance)             │
+│                                                                                  │
+│  ┌─────────────────────────┐              ┌─────────────────────────┐           │
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░ │              │                         │           │
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░ │              │      ┌─────┐            │           │
+│  │ ░░░░░░█████░░░░░░░░░░░░ │              │      │█████│ ← Chair    │           │
+│  │ ░░░░░░█TABLE█░░░░░░░░░░ │              │      │█████│   detected │           │
+│  │ ░░░░░░█████░░░░░░░░░░░░ │              │      └─────┘   by LiDAR │           │
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░ │              │                         │           │
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░ │              │    ★ Robot              │           │
+│  │ ░░★░░░░░░░░░░░░░░░░░░░░ │              │    (center)             │           │
+│  │ Start                   │              │                         │           │
+│  └─────────────────────────┘              └─────────────────────────┘           │
+│                                                                                  │
+│  • Size: Entire map (10m x 10m)           • Size: Around robot (3m x 3m)        │
+│  • Updates: Slower                        • Updates: Fast (real-time)           │
+│  • Used by: Global planner                • Used by: Local planner              │
+│  • Source: SLAM map + static obstacles    • Source: LiDAR /scan                 │
+│                                                                                  │
+│  COST VALUES:                                                                    │
+│  ┌────────────────────────────────────────────────────────────────────┐         │
+│  │  0      = Free space (safe to drive)                               │         │
+│  │  1-252  = Inflation zone (getting close to obstacle)               │         │
+│  │  253    = Inscribed (robot would touch obstacle)                   │         │
+│  │  254    = Lethal (obstacle detected)                               │         │
+│  │  255    = Unknown                                                  │         │
+│  └────────────────────────────────────────────────────────────────────┘         │
+│                                                                                  │
+│  The planner finds paths through LOW COST areas, avoiding HIGH COST areas.      │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### MoveIt2: Arm Control (Currently Minimal)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                             MOVEIT2 INTEGRATION                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  STATUS: Configured but minimally used in this project.                         │
+│          The arm is primarily set to fixed poses, not dynamic motion planning.  │
+│                                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │                        WHAT MOVEIT2 CAN DO                               │    │
+│  │                                                                          │    │
+│  │  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                │    │
+│  │  │ User says:  │     │ MoveIt2:    │     │ Result:     │                │    │
+│  │  │ "Move arm   │────▶│ Plan path   │────▶│ Smooth arm  │                │    │
+│  │  │  to pose X" │     │ avoiding    │     │ motion      │                │    │
+│  │  │             │     │ collisions  │     │             │                │    │
+│  │  └─────────────┘     └─────────────┘     └─────────────┘                │    │
+│  │                                                                          │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │                    HOW IT'S CONFIGURED HERE                              │    │
+│  │                                                                          │    │
+│  │  Files:                                                                  │    │
+│  │  ├── ur3_moveit.srdf         # Semantic robot description               │    │
+│  │  │   • Defines "ur3_arm" planning group                                 │    │
+│  │  │   • Defines "gripper" end effector                                   │    │
+│  │  │   • Self-collision matrix                                            │    │
+│  │  │                                                                       │    │
+│  │  ├── moveit_controllers.yaml  # Which controllers to use                │    │
+│  │  │   • Maps to arm_trajectory_bridge                                    │    │
+│  │  │                                                                       │    │
+│  │  └── arm_trajectory_bridge.py # Custom bridge                           │    │
+│  │      • Receives FollowJointTrajectory actions                           │    │
+│  │      • Sends joint positions to Gazebo                                  │    │
+│  │                                                                          │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │                      ARM CONTROL DATA FLOW                               │    │
+│  │                                                                          │    │
+│  │  MoveIt2                arm_trajectory_bridge              Gazebo        │    │
+│  │  ┌───────────┐          ┌───────────────────┐          ┌───────────┐    │    │
+│  │  │ Plan arm  │          │ Receive trajectory│          │ Physics   │    │    │
+│  │  │ trajectory│─────────▶│ Extract positions │─────────▶│ moves arm │    │    │
+│  │  │           │ Action   │ Publish to topics │ Topics   │           │    │    │
+│  │  └───────────┘          └───────────────────┘          └───────────┘    │    │
+│  │                                                                          │    │
+│  │  Topics published by arm_trajectory_bridge:                             │    │
+│  │  • /ur3_joint1_cmd (Float64) ──▶ Shoulder pan                           │    │
+│  │  • /ur3_joint2_cmd (Float64) ──▶ Shoulder lift                          │    │
+│  │  • /ur3_joint3_cmd (Float64) ──▶ Elbow                                  │    │
+│  │  • /ur3_joint4_cmd (Float64) ──▶ Wrist 1                                │    │
+│  │  • /ur3_joint5_cmd (Float64) ──▶ Wrist 2                                │    │
+│  │  • /ur3_joint6_cmd (Float64) ──▶ Wrist 3                                │    │
+│  │                                                                          │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                  │
+│  CURRENT USAGE IN THIS PROJECT:                                                 │
+│  • Arm stays in fixed "mapping pose" during navigation                         │
+│  • Camera on wrist captures images at each waypoint                            │
+│  • No dynamic arm motion planning needed for this task                         │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Complete Integration Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    HOW ALL MODULES WORK TOGETHER                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+                              ┌─────────────────┐
+                              │  YAML CONFIG    │
+                              │ (navigation_    │
+                              │  waypoints.yaml)│
+                              └────────┬────────┘
+                                       │
+                                       ▼
+┌──────────────────┐         ┌─────────────────┐
+│ waypoint_        │         │                 │
+│ navigator_node   │◀────────│ "Go to x,y"     │
+│                  │         │                 │
+└────────┬─────────┘         └─────────────────┘
+         │
+         │ NavigateToPose
+         │ Action
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                            NAV2                                      │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐         │
+│  │ BT Navigator   │──│ Planner Server │──│ Controller     │         │
+│  │ (coordinates)  │  │ (global path)  │  │ Server (/cmd)  │         │
+│  └────────────────┘  └───────▲────────┘  └───────┬────────┘         │
+│                              │                   │                   │
+│                     ┌────────┴────────┐          │                   │
+│                     │ Global Costmap  │          │                   │
+│                     │ (from SLAM map) │          │                   │
+│                     └────────▲────────┘          │                   │
+│                              │                   │                   │
+└──────────────────────────────┼───────────────────┼───────────────────┘
+                               │                   │
+                               │                   │
+         ┌─────────────────────┘                   │
+         │                                         │
+         │                                         ▼ /cmd_vel
+┌────────┴──────────────────────┐        ┌─────────────────┐
+│         SLAM TOOLBOX          │        │  ros_gz_bridge  │
+│  ┌─────────────────────────┐  │        └────────┬────────┘
+│  │ Input: /scan, /odom     │  │                 │
+│  │ Output: /map, map→odom  │  │                 ▼
+│  └─────────────────────────┘  │        ┌─────────────────┐
+└───────────────▲───────────────┘        │     GAZEBO      │
+                │                        │                 │
+                │                        │  ┌───────────┐  │
+    ┌───────────┴───────────┐            │  │  Husky    │  │
+    │                       │            │  │  Robot    │──┼──▶ Moves
+    │                       │            │  └───────────┘  │
+    │                       │            │                 │
+┌───┴───────────┐   ┌───────┴───────┐    │  Sensors:       │
+│  /scan        │   │  /odom        │    │  • LiDAR        │
+│  (LiDAR)      │   │  (Wheels)     │    │  • Cameras      │
+└───────────────┘   └───────────────┘    │  • Wheels       │
+        ▲                   ▲            │                 │
+        │                   │            └─────────────────┘
+        │                   │                    │
+        └───────────────────┴────────────────────┘
+                    ros_gz_bridge
+                (Gazebo → ROS2 topics)
+```
+
+---
+
+### Key Insight: Waypoints vs Sensors
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                  │
+│   Q: Is navigation based on sensor input or manually written waypoints?         │
+│                                                                                  │
+│   A: BOTH!                                                                       │
+│                                                                                  │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │                                                                          │   │
+│   │  WAYPOINTS (Manual)              SENSORS (Automatic)                    │   │
+│   │  ═══════════════════             ════════════════════                   │   │
+│   │                                                                          │   │
+│   │  • Define HIGH-LEVEL goals       • Enable LOW-LEVEL execution           │   │
+│   │  • "Go to the table"             • "Avoid the chair in front"           │   │
+│   │  • Set by the programmer         • Detected in real-time                │   │
+│   │  • Static (in YAML file)         • Dynamic (changes as robot moves)     │   │
+│   │                                                                          │   │
+│   │  Without waypoints:              Without sensors:                        │   │
+│   │  Robot doesn't know              Robot would drive                       │   │
+│   │  where to go                     straight into obstacles                 │   │
+│   │                                                                          │   │
+│   └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                  │
+│   ANALOGY:                                                                       │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │  Waypoints = GPS destination ("Navigate to Starbucks")                  │   │
+│   │  Sensors   = Your eyes ("Don't hit that pedestrian!")                   │   │
+│   │                                                                          │   │
+│   │  You need BOTH to drive safely to your destination.                     │   │
+│   └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Operational Sequence Diagram (Start to Finish)
 
 ```
