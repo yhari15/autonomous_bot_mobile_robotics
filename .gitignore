@@ -1,0 +1,48 @@
+# ROS2 Build Artifacts
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.bak
+*.tmp
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large archives (can re-download if needed)
+*.zip
+*.tar.gz
+*.tgz
+
+# Recordings and captures (keep directory structure but ignore large files)
+assignment4_recordings/*.bag2
+assignment4_recordings/*.db3
+must3r_captures/*.png
+must3r_captures/*.jpg
+pointclouds/*.pcd
+pointclouds/*.ply
+
+# PDF assignments (optional - keep for documentation)
+# *.pdf
+
+# Claude workspace
+.claude/

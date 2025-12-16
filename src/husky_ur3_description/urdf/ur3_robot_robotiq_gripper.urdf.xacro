@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro">
+  <xacro:arg name="transmission_hw_interface" default="hardware_interface/PositionJointInterface"/>
+
+  <!-- ur3 -->
+  <xacro:include filename="$(find husky_ur3_description)/urdf/ur3.urdf.xacro" />
+  <xacro:include filename="$(find husky_ur3_description)/robotiq/urdf/robotiq_arg2f_85_model_macro.xacro" />
+
+  <!-- arm -->
+  <xacro:ur3_robot prefix="" joint_limited="true"
+    shoulder_pan_lower_limit="${-pi}" shoulder_pan_upper_limit="${pi}"
+    shoulder_lift_lower_limit="${-pi}" shoulder_lift_upper_limit="${pi}"
+    elbow_joint_lower_limit="${-pi+0.52359}" elbow_joint_upper_limit="${pi}"
+    wrist_1_lower_limit="${-pi}" wrist_1_upper_limit="${pi}"
+    wrist_2_lower_limit="${-pi}" wrist_2_upper_limit="${pi}"
+    wrist_3_lower_limit="${-pi}" wrist_3_upper_limit="${pi}"
+    transmission_hw_interface="$(arg transmission_hw_interface)"
+  />
+
+  <joint name="husky_ur3_joint" type="fixed">
+    <parent link="top_plate_link" />
+    <child link = "ur3_base_link" />
+         <origin xyz="0.2 0 0.1" rpy="0 0 0" />
+  </joint>
+
+   <!-- Attach Robotiq 2F-85 gripper directly to UR3 wrist_3_link -->
+   <!-- wrist_3 has length (d6) of 0.0819m in Y direction with -90deg roll to tool0 -->
+   <xacro:robotiq_arg2f_85 prefix=""/>
+
+   <joint name="ur3_robotiq_gripper_joint" type="fixed">
+    <parent link="wrist_3_link" />
+    <child link = "robotiq_arg2f_base_link" />
+          <origin xyz="0 0.0819 0" rpy="${-pi/2} 0 ${pi/2}"/>
+  </joint>
+
+</robot>

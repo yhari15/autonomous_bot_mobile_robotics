@@ -1,0 +1,58 @@
+# MoveIt2 Joint Limits Configuration
+# Husky UR3 with Robotis Gripper
+# Assignment 4 Part 2
+
+# Override URDF joint limits for MoveIt planning
+joint_limits:
+  ur3_joint1:
+    has_velocity_limits: true
+    max_velocity: 3.14
+    has_acceleration_limits: true
+    max_acceleration: 3.14
+  ur3_joint2:
+    has_velocity_limits: true
+    max_velocity: 3.14
+    has_acceleration_limits: true
+    max_acceleration: 3.14
+  ur3_joint3:
+    has_velocity_limits: true
+    max_velocity: 3.14
+    has_acceleration_limits: true
+    max_acceleration: 3.14
+  ur3_joint4:
+    has_velocity_limits: true
+    max_velocity: 3.14
+    has_acceleration_limits: true
+    max_acceleration: 3.14
+  ur3_joint5:
+    has_velocity_limits: true
+    max_velocity: 3.14
+    has_acceleration_limits: true
+    max_acceleration: 3.14
+  ur3_joint6:
+    has_velocity_limits: true
+    max_velocity: 3.14
+    has_acceleration_limits: true
+    max_acceleration: 3.14
+  rh_p12_rn_joint:
+    has_velocity_limits: true
+    max_velocity: 1.0
+    has_acceleration_limits: true
+    max_acceleration: 1.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

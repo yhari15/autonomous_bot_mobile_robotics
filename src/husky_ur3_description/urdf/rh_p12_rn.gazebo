@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<robot>
+
+  <!-- ros_control plugin -->
+  <!--gazebo>
+    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+      <robotNamespace>/rh_p12_rn</robotNamespace>
+      <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+      <legacyModeNS>true</legacyModeNS>
+    </plugin>
+  </gazebo-->
+
+  <!-- rh_p12_rn_base -->
+  <gazebo reference="rh_p12_rn_base">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+    <material>Gazebo/DarkGrey</material>
+    <minDepth>0.001</minDepth>  
+    <maxVel>0</maxVel>  
+  </gazebo>
+
+  <!-- rh_p12_rn_r1 -->
+  <gazebo reference="rh_p12_rn_r1">
+    <mu1>15</mu1>
+    <mu2>150</mu2>
+    <material>Gazebo/DarkGrey</material>
+    <minDepth>0.001</minDepth>  
+    <maxVel>10.0</maxVel>  
+  </gazebo>
+
+  <!-- rh_p12_rn_r2 -->
+  <gazebo reference="rh_p12_rn_r2">
+    <mu1>15</mu1>
+    <mu2>150</mu2>
+    <material>Gazebo/DarkGrey</material>
+    <minDepth>0.001</minDepth>  
+    <maxVel>10.0</maxVel>  
+  </gazebo>
+
+  <!-- rh_p12_rn_l1 -->
+  <gazebo reference="rh_p12_rn_l1">
+    <mu1>15</mu1>
+    <mu2>150</mu2>
+    <material>Gazebo/DarkGrey</material>
+    <minDepth>0.001</minDepth>  
+    <maxVel>10.0</maxVel>  
+  </gazebo>
+
+  <!-- rh_p12_rn_l2 -->
+  <gazebo reference="rh_p12_rn_l2">
+    <mu1>15</mu1>
+    <mu2>150</mu2>
+    <material>Gazebo/DarkGrey</material>
+    <minDepth>0.001</minDepth>
+    <maxVel>10.0</maxVel>
+  </gazebo>
+
+  <!-- Joint Position Controller for gripper -->
+  <gazebo>
+    <plugin filename="libignition-gazebo-joint-position-controller-system.so" name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>rh_p12_rn</joint_name>
+      <topic>/rh_p12_rn_position/command</topic>
+      <p_gain>5000</p_gain>
+      <i_gain>500</i_gain>
+      <d_gain>100</d_gain>
+      <i_max>100</i_max>
+      <i_min>-100</i_min>
+      <cmd_max>0.65</cmd_max>
+      <cmd_min>0.0</cmd_min>
+      <initial_position>0.0</initial_position>
+    </plugin>
+  </gazebo>
+
+</robot>

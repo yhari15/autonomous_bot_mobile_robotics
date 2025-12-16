@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro">
+
+  <xacro:macro name="ur_arm_transmission" params="prefix hw_interface">
+
+    <transmission name="${prefix}ur3_joint1_trans">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}ur3_joint1">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}ur3_joint1_motor">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}ur3_joint2_trans">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}ur3_joint2">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}ur3_joint2_motor">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}ur3_joint3_trans">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}ur3_joint3">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}ur3_joint3_motor">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}ur3_joint4_trans">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}ur3_joint4">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}ur3_joint4_motor">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}ur3_joint5_trans">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}ur3_joint5">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}ur3_joint5_motor">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}ur3_joint6_trans">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}ur3_joint6">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}ur3_joint6_motor">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+  </xacro:macro>
+
+</robot>

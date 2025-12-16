@@ -1,0 +1,157 @@
+<?xml version="1.0"?>
+<!--
+  Additional sensors for SLAM and localization (Assignment 4 Part 2)
+  - GPS sensor for global positioning
+  - ZED 2 Stereo Camera #1: Mounted on Husky base (forward-looking)
+  - ZED 2 Stereo Camera #2: Mounted on UR3 end effector (arm camera)
+  - Compatible with Ignition Gazebo
+  
+  Per professor's requirements:
+  - Best results are obtained using 2 cameras!
+  - One camera on the HUSKY base
+  - One camera as the "end effector" at the end of the UR3 Arm
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Include ZED 2 Camera Macro -->
+  <xacro:include filename="$(find husky_ur3_description)/urdf/zed2_camera.urdf.xacro"/>
+
+  <!-- ================================================================== -->
+  <!-- GPS Sensor (Visible: GREEN box with antenna)                       -->
+  <!-- ================================================================== -->
+  
+  <link name="gps_link">
+    <!-- GPS Receiver Box -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.08 0.08 0.03"/>
+      </geometry>
+      <material name="gps_green">
+        <color rgba="0.0 0.8 0.2 1.0"/>  <!-- Bright green -->
+      </material>
+    </visual>
+    <!-- GPS Antenna (cylinder on top) -->
+    <visual>
+      <origin xyz="0 0 0.04" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.02" length="0.05"/>
+      </geometry>
+      <material name="gps_antenna">
+        <color rgba="0.9 0.9 0.9 1.0"/>  <!-- White antenna -->
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.08 0.08 0.08"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.05"/>
+      <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+  </link>
+
+  <joint name="gps_joint" type="fixed">
+    <parent link="top_plate_link"/>
+    <child link="gps_link"/>
+    <!-- Mount GPS on top plate, rear position -->
+    <origin xyz="-0.25 0.0 0.08" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Gazebo material for GPS -->
+  <gazebo reference="gps_link">
+    <material>Gazebo/Green</material>
+  </gazebo>
+
+  <!-- Ignition Gazebo GPS Sensor Plugin -->
+  <gazebo reference="gps_link">
+    <sensor name="gps_sensor" type="navsat">
+      <always_on>1</always_on>
+      <update_rate>4.0</update_rate>
+      <topic>gps/fix</topic>
+      <navsat>
+        <position_sensing>
+          <horizontal>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2.0</stddev>
+            </noise>
+          </horizontal>
+          <vertical>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>4.0</stddev>
+            </noise>
+          </vertical>
+        </position_sensing>
+        <velocity_sensing>
+          <horizontal>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>0.1</stddev>
+            </noise>
+          </horizontal>
+          <vertical>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>0.1</stddev>
+            </noise>
+          </vertical>
+        </velocity_sensing>
+      </navsat>
+    </sensor>
+  </gazebo>
+
+  <!-- ================================================================== -->
+  <!-- CAMERA 1: ZED 2 on Husky Base (Forward-Looking)                    -->
+  <!-- ================================================================== -->
+  <!-- 
+    Mount on top plate, forward position for good field of view
+    Position: 0.3m forward, 0m lateral, 0.15m above top plate
+    Orientation: Looking straight ahead
+    
+    Topics published:
+    - /zed_base/left/image_raw
+    - /zed_base/right/image_raw
+    - /zed_base/left/camera_info
+    - /zed_base/right/camera_info
+  -->
+  <xacro:zed2_camera
+    prefix="zed_base"
+    parent_link="top_plate_link"
+    xyz="0.3 0 0.15"
+    rpy="0 0 0"/>
+
+  <!-- ================================================================== -->
+  <!-- CAMERA 2: ZED 2 on UR3 End Effector (Arm Camera)                   -->
+  <!-- ================================================================== -->
+  <!--
+    Mount on wrist_3_link (end of UR3 arm, before gripper)
+    Position: Slightly forward from wrist center
+    Orientation: Looking forward along the arm direction
+    
+    This camera moves with the arm, providing additional viewpoints
+    for MUSt3R multi-view 3D reconstruction.
+    
+    Topics published:
+    - /zed_arm/left/image_raw
+    - /zed_arm/right/image_raw
+    - /zed_arm/left/camera_info
+    - /zed_arm/right/camera_info
+  -->
+  <xacro:zed2_camera
+    prefix="zed_arm"
+    parent_link="wrist_3_link"
+    xyz="0.05 0 0.05"
+    rpy="0 0 0"/>
+    <!-- 
+      Position explanation (UPDATED - forward facing):
+      - Offset 0.05m along X (forward from wrist)
+      - No Y offset (centered)
+      - Offset 0.05m along Z (above wrist to clear gripper)
+      - NO rotation - camera faces forward along the arm direction
+      This allows the arm camera to capture the table when arm is positioned
+    -->
+
+</robot>

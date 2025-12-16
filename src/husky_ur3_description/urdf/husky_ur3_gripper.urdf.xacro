@@ -1,0 +1,375 @@
+<?xml version="1.0"?>
+<!--
+Software License Agreement (BSD)
+
+\file      husky.urdf.xacro
+\authors   Paul Bovbel <pbovbel@clearpathrobotics.com>, Devon Ash <dash@clearpathrobotics.com>
+\copyright Copyright (c) 2015, Clearpath Robotics, Inc., All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that
+the following conditions are met:
+ * Redistributions of source code must retain the above copyright notice, this list of conditions and the
+   following disclaimer.
+ * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
+   following disclaimer in the documentation and/or other materials provided with the distribution.
+ * Neither the name of Clearpath Robotics nor the names of its contributors may be used to endorse or promote
+   products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WAR-
+RANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, IN-
+DIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<robot name="husky" xmlns:xacro="http://ros.org/wiki/xacro">
+
+ 
+  <xacro:arg name="laser_xyz" default="0.4 0 0.15" />
+  <xacro:arg name="laser_rpy" default="0 0 0" />
+
+  <xacro:property name="husky_front_bumper_extend" value="$(optenv HUSKY_FRONT_BUMPER_EXTEND 0)" />
+  <xacro:property name="husky_rear_bumper_extend" value="$(optenv HUSKY_REAR_BUMPER_EXTEND 0)" />
+
+  <xacro:arg name="robot_namespace" default="/husky" />
+  <xacro:arg name="urdf_extras" default="empty.urdf" />
+
+  <!-- Included URDF/XACRO Files -->
+  <xacro:include filename="$(find husky_ur3_description)/urdf/decorations.urdf.xacro" />
+  <xacro:include filename="$(find husky_ur3_description)/urdf/wheel.urdf.xacro" />
+  <xacro:include filename="$(find husky_ur3_description)/urdf/accessories/sensor_arch.urdf.xacro"/>
+  <xacro:include filename="$(find husky_ur3_description)/urdf/accessories/sick_tim571.urdf.xacro"/>
+  <!-- Additional sensors for SLAM (Assignment 4 Part 2) -->
+  <xacro:include filename="$(find husky_ur3_description)/urdf/sensors.urdf.xacro"/>
+  <!-- Gripper options: uncomment the one you want to use -->
+  <!-- Option 1: Robotis RH-P12-RN gripper (ACTIVE - Per professor's specs) -->
+  <xacro:include filename="$(find husky_ur3_description)/urdf/ur3_robot_robotis_gripper.urdf.xacro"/>
+  <!-- Option 2: Robotiq 2F-85 gripper (commented out) -->
+  <!--xacro:include filename="$(find husky_ur3_description)/urdf/ur3_robot_robotiq_gripper.urdf.xacro"/-->
+  <!--xacro:include filename="$(find husky_ur3_description)/urdf/accessories/d435_camera_h.urdf.xacro"/-->
+  <!--xacro:include filename="$(find husky_ur3_description)/urdf/accessories/d435_camera_g.urdf.xacro"/-->
+  <!--xacro:include filename="$(find husky_ur3_description)/urdf/ur3_robot.urdf.xacro"/-->
+
+
+
+
+  <xacro:property name="M_PI" value="3.14159"/>
+
+  <!-- Base Size -->
+  <xacro:property name="base_x_size" value="0.98740000" />
+  <xacro:property name="base_y_size" value="0.57090000" />
+  <xacro:property name="base_z_size" value="0.24750000" />
+
+  <!-- Wheel Mounting Positions -->
+  <xacro:property name="wheelbase" value="0.5120" />
+  <xacro:property name="track" value="0.5708" />
+  <xacro:property name="wheel_vertical_offset" value="0.03282" />
+
+  <!-- Wheel Properties -->
+  <xacro:property name="wheel_length" value="0.1143" />
+  <xacro:property name="wheel_radius" value="0.1651" />
+  
+
+
+
+  <!-- Base link is the center of the robot's bottom plate -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://husky_ur3_description/meshes/base_link.dae" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="${( husky_front_bumper_extend - husky_rear_bumper_extend ) / 2.0} 0 ${base_z_size/4}" rpy="0 0 0" />
+      <geometry>
+        <box size="${ base_x_size + husky_front_bumper_extend + husky_rear_bumper_extend } ${base_y_size} ${base_z_size/2}"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0 ${base_z_size*3/4-0.01}" rpy="0 0 0" />
+      <geometry>
+        <box size="${base_x_size*4/5} ${base_y_size} ${base_z_size/2-0.02}"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Gazebo physics parameters for base_link to prevent oscillation -->
+  <gazebo reference="base_link">
+    <gravity>true</gravity>
+    <self_collide>false</self_collide>
+  </gazebo>
+
+  <!-- Base footprint is on the ground under the robot -->
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <origin xyz="0 0 ${wheel_vertical_offset - wheel_radius}" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="base_footprint" />
+  </joint>
+
+  <!-- Interial link stores the robot's inertial information -->
+  <link name="inertial_link">
+    <inertial>
+      <mass value="46.034" />
+      <origin xyz="-0.00065 -0.085 0.062" />
+      <inertia ixx="0.6022" ixy="-0.02364" ixz="-0.1197" iyy="1.7386" iyz="-0.001544" izz="2.0296" />
+    </inertial>
+  </link>
+
+  <joint name="inertial_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="inertial_link" />
+  </joint>
+
+  <!-- IMU Link (Visible: YELLOW box) -->
+  <!-- Mounted on base_link for measuring orientation and acceleration -->
+  <link name="imu_link">
+    <visual>
+      <geometry>
+        <box size="0.04 0.04 0.02"/>
+      </geometry>
+      <material name="imu_yellow">
+        <color rgba="1.0 0.9 0.0 1.0"/>  <!-- Bright yellow -->
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.04 0.04 0.02"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.01"/>
+      <inertia ixx="0.000001" ixy="0" ixz="0" iyy="0.000001" iyz="0" izz="0.000001"/>
+    </inertial>
+  </link>
+  
+  <joint name="imu_joint" type="fixed">
+    <origin xyz="0 0 0.35" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="imu_link" />
+  </joint>
+  
+  <!-- Gazebo material for IMU -->
+  <gazebo reference="imu_link">
+    <material>Gazebo/Yellow</material>
+  </gazebo>
+
+  <!-- Husky wheel macros -->
+  <xacro:husky_wheel wheel_prefix="front_left">
+    <origin xyz="${wheelbase/2} ${track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
+  </xacro:husky_wheel>
+  <xacro:husky_wheel wheel_prefix="front_right">
+    <origin xyz="${wheelbase/2} ${-track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
+  </xacro:husky_wheel>
+  <xacro:husky_wheel wheel_prefix="rear_left">
+    <origin xyz="${-wheelbase/2} ${track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
+  </xacro:husky_wheel>
+  <xacro:husky_wheel wheel_prefix="rear_right">
+    <origin xyz="${-wheelbase/2} ${-track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
+  </xacro:husky_wheel>
+
+  <!-- Wheel friction parameters removed - now handled in wheel.urdf.xacro -->
+  <!-- wheel.urdf.xacro has optimized friction settings including torsional=0.0 for rotation -->
+
+  <xacro:husky_decorate />
+    
+
+
+  <xacro:sensor_sick_tim571 prefix="front_laser" parent="top_plate_link" prefix_topic="front_laser">
+   	<origin xyz="$(arg laser_xyz)" rpy="$(arg laser_rpy)"/>
+  </xacro:sensor_sick_tim571>
+
+	
+
+ <joint name="control_box_ur3_joint" type="fixed">
+      <origin xyz="-0.095 0 0.233" rpy="${M_PI/2} 0 0" />
+      <parent link="top_plate_link"/>
+      <child link="control_box_ur3_link" />
+    </joint>   
+  
+  <link name="control_box_ur3_link">
+    <inertial>
+      <mass value="5.0" />
+      <origin xyz="0 0 0" />
+      <inertia  ixx="0.0" ixy="0.0"  ixz="0.0"  iyy="0.0"  iyz="0.0"  izz="0.0" />
+    </inertial>
+    <visual>
+       <origin xyz="0 0 0" rpy="0 -${M_PI/2} 0 " />
+       <geometry>
+         <mesh filename="package://husky_ur3_description/meshes/UR_Contorl_Box.stl" scale="0.001 0.001 0.001"/> 
+       </geometry>
+       <material name="gray">
+         <color rgba="0.153 0.153 0.153 1"/>
+       </material>
+    </visual>  
+    <collision>
+       <origin xyz="-0.1 0 0" rpy="0 0 0 " />
+       <geometry>
+           <box size="0.28 0.46 0.37"/>
+       </geometry>
+    </collision>     
+  </link>
+
+
+  <gazebo reference="control_box_ur3_link">
+    <material>Gazebo/DarkGrey</material>
+  </gazebo>
+
+
+
+
+  <!-- Ignition Gazebo Joint State Publisher Plugin -->
+  <gazebo>
+    <plugin filename="ignition-gazebo-joint-state-publisher-system" name="ignition::gazebo::systems::JointStatePublisher">
+      <topic>joint_states</topic>
+    </plugin>
+  </gazebo>
+
+  <!-- Ignition Gazebo Joint Position Controller Plugin for UR3 Arm -->
+  <!-- This holds the UR3 joints at their commanded positions to prevent drooping -->
+  <gazebo>
+    <plugin filename="libignition-gazebo-joint-position-controller-system.so" name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>ur3_joint1</joint_name>
+      <topic>/ur3_joint1_cmd</topic>
+      <p_gain>2000</p_gain>
+      <i_gain>100</i_gain>
+      <d_gain>50</d_gain>
+      <initial_position>0.0</initial_position>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin filename="libignition-gazebo-joint-position-controller-system.so" name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>ur3_joint2</joint_name>
+      <topic>/ur3_joint2_cmd</topic>
+      <p_gain>2000</p_gain>
+      <i_gain>100</i_gain>
+      <d_gain>50</d_gain>
+      <initial_position>-1.57</initial_position>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin filename="libignition-gazebo-joint-position-controller-system.so" name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>ur3_joint3</joint_name>
+      <topic>/ur3_joint3_cmd</topic>
+      <p_gain>2000</p_gain>
+      <i_gain>100</i_gain>
+      <d_gain>50</d_gain>
+      <initial_position>1.57</initial_position>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin filename="libignition-gazebo-joint-position-controller-system.so" name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>ur3_joint4</joint_name>
+      <topic>/ur3_joint4_cmd</topic>
+      <p_gain>1000</p_gain>
+      <i_gain>50</i_gain>
+      <d_gain>25</d_gain>
+      <initial_position>0.0</initial_position>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin filename="libignition-gazebo-joint-position-controller-system.so" name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>ur3_joint5</joint_name>
+      <topic>/ur3_joint5_cmd</topic>
+      <p_gain>1000</p_gain>
+      <i_gain>50</i_gain>
+      <d_gain>25</d_gain>
+      <initial_position>0.0</initial_position>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin filename="libignition-gazebo-joint-position-controller-system.so" name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>ur3_joint6</joint_name>
+      <topic>/ur3_joint6_cmd</topic>
+      <p_gain>1000</p_gain>
+      <i_gain>50</i_gain>
+      <d_gain>25</d_gain>
+      <initial_position>0.0</initial_position>
+    </plugin>
+  </gazebo>
+  <!-- NOTE: Gripper plugin is now defined in rh_p12_rn.gazebo (included via rh_p12_rn_gripper.xacro) -->
+  <!-- Duplicate plugin removed to prevent conflicts -->
+
+  <!-- Ignition Gazebo Differential Drive Plugin for Mobile Base -->
+  <gazebo>
+    <plugin filename="libignition-gazebo-diff-drive-system.so" name="ignition::gazebo::systems::DiffDrive">
+      <!-- 4-wheel drive for better traction -->
+      <left_joint>front_left_wheel</left_joint>
+      <left_joint>rear_left_wheel</left_joint>
+      <right_joint>front_right_wheel</right_joint>
+      <right_joint>rear_right_wheel</right_joint>
+      <wheel_separation>0.5708</wheel_separation>
+      <wheel_radius>0.1651</wheel_radius>
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <!-- Odometry provider - WORLD for better rotation tracking -->
+      <odom_provider_type>WORLD</odom_provider_type>
+      <!-- MASSIVELY increased wheel torque for rotation -->
+      <max_wheel_torque>5000</max_wheel_torque>
+      <!-- Velocity and acceleration limits -->
+      <max_linear_acceleration>10.0</max_linear_acceleration>
+      <min_linear_acceleration>-10.0</min_linear_acceleration>
+      <max_angular_acceleration>20.0</max_angular_acceleration>
+      <min_angular_acceleration>-20.0</min_angular_acceleration>
+      <max_linear_velocity>2.0</max_linear_velocity>
+      <min_linear_velocity>-2.0</min_linear_velocity>
+      <max_angular_velocity>10.0</max_angular_velocity>
+      <min_angular_velocity>-10.0</min_angular_velocity>
+      <!-- Topic configuration -->
+      <topic>/cmd_vel</topic>
+      <odom_topic>/odometry</odom_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+      <!-- Publishing options -->
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <publish_wheel_tf>false</publish_wheel_tf>
+    </plugin>
+  </gazebo>
+
+  <!-- Old Gazebo Classic plugin - commented out for Ignition Gazebo -->
+  <!--gazebo>
+    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+      <robotNamespace>$(arg robot_namespace)</robotNamespace>
+    </plugin>
+  </gazebo-->
+
+  <!-- Ignition Gazebo IMU Sensor Plugin -->
+  <gazebo reference="imu_link">
+    <sensor name="imu_sensor" type="imu">
+      <always_on>1</always_on>
+      <update_rate>100</update_rate>
+      <topic>imu</topic>
+      <visualize>true</visualize>
+    </sensor>
+  </gazebo>
+
+  <!-- Gazebo Classic plugin - not compatible with Ignition Gazebo. Commented out. -->
+  <!--gazebo>
+    <plugin name="gps_controller" filename="libhector_gazebo_ros_gps.so">
+      <robotNamespace>$(arg robot_namespace)</robotNamespace>
+      <updateRate>40</updateRate>
+      <bodyName>base_link</bodyName>
+      <frameId>base_link</frameId>
+      <topicName>navsat/fix</topicName>
+      <velocityTopicName>navsat/vel</velocityTopicName>
+      <referenceLatitude>49.9</referenceLatitude>
+      <referenceLongitude>8.9</referenceLongitude>
+      <referenceHeading>0</referenceHeading>
+      <referenceAltitude>0</referenceAltitude>
+      <drift>0.0001 0.0001 0.0001</drift>
+    </plugin>
+  </gazebo-->
+
+  <!-- Optional custom includes. -->
+  <xacro:include filename="$(arg urdf_extras)" />
+
+</robot>

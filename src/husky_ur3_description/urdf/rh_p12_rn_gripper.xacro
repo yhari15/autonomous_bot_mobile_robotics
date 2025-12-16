@@ -1,0 +1,215 @@
+<?xml version="1.0"?>
+<robot name="rh_p12_rn" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<!-- 210927 YSW: Added hardware interface and modified type of joints -->
+
+  <!-- some parameters -->
+  <!-- FIXED: Removed duplicate pi definition to avoid xacro warning -->
+  <!-- <xacro:property name="pi" value="3.141592654" /> -->
+
+  <!-- Import all Gazebo-customization elements, including Gazebo colors -->
+  <xacro:include filename="$(find husky_ur3_description)/urdf/rh_p12_rn.gazebo" />
+
+  <!-- Import Rviz colors -->
+  <xacro:include filename="$(find husky_ur3_description)/urdf/materials.xacro" />
+
+  <!-- base -->
+  <link name="rh_p12_rn_base">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://husky_ur3_description/meshes/base.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://husky_ur3_description/meshes/base.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="grey"/>
+    </visual>
+
+    <inertial>
+      <origin xyz="0.000 0.000 0.032" rpy="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001" />
+    </inertial>
+  </link>
+
+  <!-- Joint -->
+  <joint name="rh_p12_rn" type="revolute">
+    <parent link="rh_p12_rn_base"/>
+    <child link="rh_p12_rn_r1"/>
+    <origin xyz="0.0 0.008 0.048" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit velocity="5.0" effort="500" lower="0.0" upper="1.1" />
+    <dynamics damping="0.1" friction="0.01"/>
+  </joint>
+
+  <transmission name="tran_r1">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="rh_p12_rn">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="motor_r1">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <!-- rh_p12_rn_r1 -->
+  <link name="rh_p12_rn_r1">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://husky_ur3_description/meshes/r1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://husky_ur3_description/meshes/r1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="grey"/>
+    </visual>
+
+    <inertial>
+      <origin xyz="0.000 0.034 0.004" rpy="0 0 0"/>
+      <mass value="0.05"/>
+      <inertia ixx="0.0001" ixy="0.0" ixz="0.0" iyy="0.0001" iyz="0.0" izz="0.0001" />
+    </inertial>
+  </link>
+
+  <!-- Right Joint 2 - FIXED to prevent free movement -->
+  <joint name="rh_r2" type="fixed">
+    <parent link="rh_p12_rn_r1"/>
+    <child link="rh_p12_rn_r2"/>
+    <origin xyz="0.0 0.0493634 0.0285" rpy="0 0 0"/>
+  </joint>
+
+  <transmission name="tran_r2">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="rh_r2">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="motor_r2">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <!-- rh_p12_rn_r2 -->
+  <link name="rh_p12_rn_r2">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://husky_ur3_description/meshes/r2.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://husky_ur3_description/meshes/r2.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="grey"/>
+    </visual>
+
+    <inertial>
+      <origin xyz="0.000 0.006 0.011" rpy="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001" />
+    </inertial>
+  </link>
+
+  <!-- Left Joint 1 - REVOLUTE with MIMIC to mirror right side -->
+  <joint name="rh_l1" type="revolute">
+    <parent link="rh_p12_rn_base"/>
+    <child link="rh_p12_rn_l1"/>
+    <origin xyz="0.0 -0.008 0.048" rpy="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit velocity="5.0" effort="500" lower="0.0" upper="1.1" />
+    <dynamics damping="0.1" friction="0.01"/>
+    <mimic joint="rh_p12_rn" multiplier="1.0" offset="0"/>
+  </joint>
+
+  <transmission name="tran_l1">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="rh_l1">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="motor_l1">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <!-- rh_p12_rn_l1 -->
+  <link name="rh_p12_rn_l1">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://husky_ur3_description/meshes/l1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://husky_ur3_description/meshes/l1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="grey"/>
+    </visual>
+
+    <inertial>
+      <origin xyz="0.000 -0.034 0.004" rpy="0 0 0"/>
+      <mass value="0.05"/>
+      <inertia ixx="0.0001" ixy="0.0" ixz="0.0" iyy="0.0001" iyz="0.0" izz="0.0001" />
+    </inertial>
+  </link>
+
+  <!-- Left Joint 2 - FIXED to prevent free movement -->
+  <joint name="rh_l2" type="fixed">
+    <parent link="rh_p12_rn_l1"/>
+    <child link="rh_p12_rn_l2"/>
+    <origin xyz="0.0 -0.0493634 0.0285" rpy="0 0 0"/>
+  </joint>
+
+  <transmission name="tran_l2">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="rh_l2">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="motor_l2">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <!-- rh_p12_rn_l2 -->
+  <link name="rh_p12_rn_l2">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://husky_ur3_description/meshes/l2.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://husky_ur3_description/meshes/l2.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="grey"/>
+    </visual>
+
+    <inertial>
+      <origin xyz="0.000 -0.006 0.011" rpy="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001" />
+    </inertial>
+  </link>
+
+</robot>

@@ -1,0 +1,153 @@
+###
+# EKF Parameters for Husky UR3 Mobile Manipulator
+# Assignment 4 Part 2 - SLAM Implementation
+# Fuses odometry, IMU, and GPS data for robust state estimation
+###
+
+ekf_filter_node:
+  ros__parameters:
+    use_sim_time: true
+
+    # Frequency of the filter (Hz). Must be >= sensor update rates
+    frequency: 10.0
+
+    # Sensor timeout (seconds). If no message received, sensor is ignored
+    sensor_timeout: 0.5
+
+    # 2D mode (ignores z, roll, pitch)
+    two_d_mode: true
+
+    # Time offset for transforms (usually 0)
+    transform_time_offset: 0.0
+
+    # Transform timeout (0 = no timeout)
+    transform_timeout: 0.0
+
+    # Print diagnostic information
+    print_diagnostics: true
+    debug: false
+
+    # Frame configuration
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
+    
+    # Publish TF transforms (CRITICAL!)
+    publish_tf: true
+
+    # -------------------------------------
+    # Odometry (Wheel Encoders)
+    # -------------------------------------
+    odom0: /odom
+    odom0_config: [true,  true,  false,  # x, y, z position
+                   false, false, true,   # roll, pitch, yaw orientation
+                   true,  true,  false,  # vx, vy, vz linear velocity
+                   false, false, true,   # vroll, vpitch, vyaw angular velocity
+                   false, false, false]  # ax, ay, az linear acceleration
+    odom0_queue_size: 10
+    odom0_nodelay: false
+    odom0_differential: false
+    odom0_relative: false
+
+    # -------------------------------------
+    # IMU (Inertial Measurement Unit)
+    # -------------------------------------
+    imu0: /imu
+    imu0_config: [false, false, false,  # x, y, z position (IMU doesn't provide)
+                  true,  true,  true,   # roll, pitch, yaw orientation
+                  false, false, false,  # vx, vy, vz linear velocity
+                  true,  true,  true,   # vroll, vpitch, vyaw angular velocity
+                  true,  true,  true]   # ax, ay, az linear acceleration
+    imu0_queue_size: 10
+    imu0_nodelay: false
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+
+    # -------------------------------------
+    # GPS (NavSat Fix)
+    # Note: GPS provides global position but needs to be converted to local frame
+    # We'll use navsat_transform_node for this
+    # -------------------------------------
+    # For now, we won't directly fuse GPS into EKF
+    # Instead, we'll use it via navsat_transform_node which converts
+    # GPS lat/lon to local coordinates and publishes as odometry
+
+    # -------------------------------------
+    # Process Noise Covariance Matrix (Q)
+    # Represents uncertainty in the motion model
+    # Order: x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az
+    # -------------------------------------
+    process_noise_covariance: [0.05, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.05, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.06, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.03, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.03, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.06, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.025, 0.0, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.025, 0.0, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.04, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.01, 0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.01, 0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.02, 0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.01, 0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.01, 0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.015]
+
+    # -------------------------------------
+    # Initial State Covariance Matrix (P)
+    # Represents initial uncertainty in state estimate
+    # Start with very low uncertainty (robot knows its starting position)
+    # -------------------------------------
+    initial_estimate_covariance: [1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9]
+
+
+# -------------------------------------
+# NavSat Transform Node (GPS to Local Coordinates)
+# -------------------------------------
+navsat_transform:
+  ros__parameters:
+    use_sim_time: true
+
+    # Frequency of transform broadcast (Hz)
+    frequency: 10.0
+
+    # Delay (seconds) before using GPS
+    delay: 3.0
+
+    # Magnetic declination (radians) - set to 0 for simulation
+    magnetic_declination_radians: 0.0
+
+    # Yaw offset (radians) - typically 0
+    yaw_offset: 0.0
+
+    # Whether to broadcast transforms
+    broadcast_utm_transform: false
+
+    # Whether to publish filtered GPS
+    publish_filtered_gps: true
+
+    # Use odometry yaw or not
+    use_odometry_yaw: false
+
+    # Wait for datum (reference point) or use first GPS fix
+    wait_for_datum: false
+
+    # Frame IDs
+    world_frame: odom
+    base_link_frame: base_link

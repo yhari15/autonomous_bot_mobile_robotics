@@ -1,0 +1,71 @@
+# Navigation Waypoints for Mars Thanksgiving Table Mapping
+# SIMPLE PATH: Start to End while mapping the table
+#
+# Task: Navigate from spawn point to destination
+# While moving, MUSt3R captures images and builds 3D map
+# At end, save PCD file
+
+table_center:
+  x: 3.0
+  y: 0.0
+  z: 0.75
+
+arm_configs:
+  close_up:
+    joint_positions: [0.0, -1.57, 1.57, -1.57, -1.57, 0.0]
+  medium:
+    joint_positions: [0.0, -0.785, 0.785, -0.785, -1.57, 0.0]
+  wide:
+    joint_positions: [0.0, -0.3, 0.3, -0.3, -1.57, 0.0]
+
+# Simple path that passes by the table for good views
+waypoints:
+  # Start position (robot spawn area)
+  - id: 1
+    pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0  # facing east
+    arm_config: medium
+    description: "Start - robot spawn position"
+
+  # Move toward table - good view angle
+  - id: 2
+    pose:
+      x: 1.5
+      y: 0.5
+      z: 0.0
+      yaw: -0.3  # slight angle toward table
+    arm_config: medium
+    description: "Approach - view of table"
+
+  # Pass by table north side
+  - id: 3
+    pose:
+      x: 3.0
+      y: 1.5
+      z: 0.0
+      yaw: -1.57  # facing table (south)
+    arm_config: medium
+    description: "North of table - main capture point"
+
+  # Continue east past table
+  - id: 4
+    pose:
+      x: 4.5
+      y: 0.5
+      z: 0.0
+      yaw: -2.5  # angle toward table
+    arm_config: medium
+    description: "East approach - side view"
+
+  # End position
+  - id: 5
+    pose:
+      x: 5.5
+      y: 0.0
+      z: 0.0
+      yaw: 3.14  # facing back west
+    arm_config: medium
+    description: "End - destination reached"
